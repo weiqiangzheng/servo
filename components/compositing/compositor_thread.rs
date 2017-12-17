@@ -6,6 +6,7 @@
 
 use SendableFrameTree;
 use compositor::CompositingReason;
+use crossbeam_channel::{Receiver, Sender};
 use embedder_traits::EventLoopWaker;
 use gfx_traits::Epoch;
 use ipc_channel::ipc::IpcSender;
@@ -15,7 +16,6 @@ use profile_traits::mem;
 use profile_traits::time;
 use script_traits::{AnimationState, ConstellationMsg, EventResult};
 use std::fmt::{Debug, Error, Formatter};
-use std::sync::mpsc::{Receiver, Sender};
 use style_traits::viewport::ViewportConstraints;
 use webrender;
 use webrender_api::{self, DeviceIntPoint, DeviceUintSize};

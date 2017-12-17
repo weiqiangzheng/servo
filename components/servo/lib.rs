@@ -30,6 +30,7 @@ pub extern crate canvas;
 pub extern crate canvas_traits;
 pub extern crate compositing;
 pub extern crate constellation;
+pub extern crate crossbeam_channel;
 pub extern crate debugger;
 pub extern crate devtools;
 pub extern crate devtools_traits;
@@ -79,6 +80,7 @@ use constellation::{Constellation, InitialConstellationState, UnprivilegedPipeli
 use constellation::{FromCompositorLogger, FromScriptLogger};
 #[cfg(all(not(target_os = "windows"), not(target_os = "ios")))]
 use constellation::content_process_sandbox_profile;
+use crossbeam_channel::Sender;
 use embedder_traits::{EmbedderMsg, EmbedderProxy, EmbedderReceiver, EventLoopWaker};
 use env_logger::Builder as EnvLoggerBuilder;
 use euclid::Length;
@@ -100,7 +102,6 @@ use std::borrow::Cow;
 use std::cmp::max;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::mpsc::{Sender, channel};
 use webrender::RendererKind;
 use webvr::{WebVRThread, WebVRCompositorHandler};
 
@@ -426,7 +427,7 @@ impl<Window> Servo<Window> where Window: WindowMethods + 'static {
 
 fn create_embedder_channel(event_loop_waker: Box<EventLoopWaker>)
     -> (EmbedderProxy, EmbedderReceiver) {
-    let (sender, receiver) = channel();
+    let (sender, receiver) = crossbeam_channel::unbounded();
     (EmbedderProxy {
          sender: sender,
          event_loop_waker: event_loop_waker,
@@ -438,7 +439,7 @@ fn create_embedder_channel(event_loop_waker: Box<EventLoopWaker>)
 
 fn create_compositor_channel(event_loop_waker: Box<EventLoopWaker>)
     -> (CompositorProxy, CompositorReceiver) {
-    let (sender, receiver) = channel();
+    let (sender, receiver) = crossbeam_channel::unbounded();
     (CompositorProxy {
          sender: sender,
          event_loop_waker: event_loop_waker,

@@ -8,6 +8,8 @@
 use animation::Animation;
 use app_units::Au;
 use bloom::StyleBloom;
+#[cfg(feature = "servo")]
+use crossbeam_channel::Sender;
 use data::{EagerPseudoStyles, ElementData};
 use dom::{SendElement, TElement};
 #[cfg(feature = "servo")]

@@ -6,6 +6,7 @@ use CompositionPipeline;
 use SendableFrameTree;
 use compositor_thread::{CompositorProxy, CompositorReceiver};
 use compositor_thread::{InitialCompositorState, Msg};
+use crossbeam_channel::Sender;
 use euclid::{TypedPoint2D, TypedVector2D, TypedScale};
 use gfx_traits::Epoch;
 #[cfg(feature = "gleam")]
@@ -31,7 +32,6 @@ use std::env;
 use std::fs::{File, create_dir_all};
 use std::io::Write;
 use std::rc::Rc;
-use std::sync::mpsc::Sender;
 use std::time::Instant;
 use style_traits::{CSSPixel, DevicePixel, PinchZoomFactor};
 use style_traits::cursor::CursorKind;
