@@ -7,7 +7,7 @@
 //! If an active service worker timeouts, then it removes the descriptor entry from its
 //! active_workers map
 
-use crossbeam_channel::{self, Sender, Receiver, RecvError};
+use crossbeam_channel::{self, Sender, Receiver};
 use devtools_traits::{DevtoolsPageInfo, ScriptToDevtoolsControlMsg};
 use dom::abstractworker::WorkerScriptMsg;
 use dom::bindings::structuredclone::StructuredCloneData;
@@ -108,7 +108,7 @@ impl ServiceWorkerManager {
     }
 
     fn handle_message(&mut self) {
-        while let Ok(message) = self.receive_message() {
+        while let Some(message) = self.receive_message() {
             let should_continue = match message {
                 Message::FromConstellation(msg) => {
                     self.handle_message_from_constellation(msg)
@@ -184,12 +184,13 @@ impl ServiceWorkerManager {
         true
     }
 
-    fn receive_message(&mut self) -> Result<Message, RecvError> {
-        select_loop! {
-            recv(self.own_port, msg) => Ok(Message::FromConstellation(msg)),
-            recv(self.resource_receiver, msg) => Ok(Message::FromResource(msg)),
-            // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/issues/6
-            disconnected() => Err(RecvError),
+    // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/pull/49
+    #[allow(unsafe_code)]
+    fn receive_message(&mut self) -> Option<Message> {
+        select! {
+            recv(self.own_port, msg) => msg.map(Message::FromConstellation),
+            recv(self.resource_receiver, msg) => msg.map(Message::FromResource),
+            default => None,
         }
     }
 }

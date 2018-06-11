@@ -261,9 +261,7 @@ impl<Window> Servo<Window> where Window: WindowMethods + 'static {
 
             WindowEvent::LoadUrl(top_level_browsing_context_id, url) => {
                 let msg = ConstellationMsg::LoadUrl(top_level_browsing_context_id, url);
-                if let Err(e) = self.constellation_chan.send(msg) {
-                    warn!("Sending load url to constellation failed ({}).", e);
-                }
+                self.constellation_chan.send(msg)
             }
 
             WindowEvent::MouseWindowEventClass(mouse_window_event) => {
@@ -296,16 +294,12 @@ impl<Window> Servo<Window> where Window: WindowMethods + 'static {
 
             WindowEvent::Navigation(top_level_browsing_context_id, direction) => {
                 let msg = ConstellationMsg::TraverseHistory(top_level_browsing_context_id, direction);
-                if let Err(e) = self.constellation_chan.send(msg) {
-                    warn!("Sending navigation to constellation failed ({}).", e);
-                }
+                self.constellation_chan.send(msg)
             }
 
             WindowEvent::KeyEvent(ch, key, state, modifiers) => {
                 let msg = ConstellationMsg::KeyEvent(ch, key, state, modifiers);
-                if let Err(e) = self.constellation_chan.send(msg) {
-                    warn!("Sending key event to constellation failed ({}).", e);
-                }
+                self.constellation_chan.send(msg)
             }
 
             WindowEvent::Quit => {
@@ -314,9 +308,7 @@ impl<Window> Servo<Window> where Window: WindowMethods + 'static {
 
             WindowEvent::Reload(top_level_browsing_context_id) => {
                 let msg = ConstellationMsg::Reload(top_level_browsing_context_id);
-                if let Err(e) = self.constellation_chan.send(msg) {
-                    warn!("Sending reload to constellation failed ({}).", e);
-                }
+                self.constellation_chan.send(msg)
             }
 
             WindowEvent::ToggleWebRenderDebug(option) => {
@@ -329,30 +321,22 @@ impl<Window> Servo<Window> where Window: WindowMethods + 'static {
 
             WindowEvent::NewBrowser(url, response_chan) => {
                 let msg = ConstellationMsg::NewBrowser(url, response_chan);
-                if let Err(e) = self.constellation_chan.send(msg) {
-                    warn!("Sending NewBrowser message to constellation failed ({}).", e);
-                }
+                self.constellation_chan.send(msg)
             }
 
             WindowEvent::SelectBrowser(ctx) => {
                 let msg = ConstellationMsg::SelectBrowser(ctx);
-                if let Err(e) = self.constellation_chan.send(msg) {
-                    warn!("Sending SelectBrowser message to constellation failed ({}).", e);
-                }
+                self.constellation_chan.send(msg)
             }
 
             WindowEvent::CloseBrowser(ctx) => {
                 let msg = ConstellationMsg::CloseBrowser(ctx);
-                if let Err(e) = self.constellation_chan.send(msg) {
-                    warn!("Sending CloseBrowser message to constellation failed ({}).", e);
-                }
+                self.constellation_chan.send(msg)
             }
 
             WindowEvent::SendError(ctx, e) => {
                 let msg = ConstellationMsg::SendError(ctx, e);
-                if let Err(e) = self.constellation_chan.send(msg) {
-                    warn!("Sending CloseBrowser message to constellation failed ({}).", e);
-                }
+                self.constellation_chan.send(msg)
             }
         }
     }
@@ -539,7 +523,7 @@ fn create_constellation(user_agent: Cow<'static, str>,
 
     if let Some(webvr_constellation_sender) = webvr_constellation_sender {
         // Set constellation channel used by WebVR thread to broadcast events
-        webvr_constellation_sender.send(constellation_chan.clone()).unwrap();
+        webvr_constellation_sender.send(constellation_chan.clone());
     }
 
     // channels to communicate with Service Worker Manager

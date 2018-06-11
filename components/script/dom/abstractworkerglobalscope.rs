@@ -20,7 +20,7 @@ pub struct SendableWorkerScriptChan<T: DomObject> {
 
 impl<T: JSTraceable + DomObject + 'static> ScriptChan for SendableWorkerScriptChan<T> {
     fn send(&self, msg: CommonScriptMsg) -> Result<(), ()> {
-        self.sender.send((self.worker.clone(), msg)).map_err(|_| ())
+        Ok(self.sender.send((self.worker.clone(), msg)))
     }
 
     fn clone(&self) -> Box<ScriptChan + Send> {
@@ -42,9 +42,8 @@ pub struct WorkerThreadWorkerChan<T: DomObject> {
 
 impl<T: JSTraceable + DomObject + 'static> ScriptChan for WorkerThreadWorkerChan<T> {
     fn send(&self, msg: CommonScriptMsg) -> Result<(), ()> {
-        self.sender
-            .send((self.worker.clone(), WorkerScriptMsg::Common(msg)))
-            .map_err(|_| ())
+        Ok(self.sender
+               .send((self.worker.clone(), WorkerScriptMsg::Common(msg))))
     }
 
     fn clone(&self) -> Box<ScriptChan + Send> {
@@ -58,9 +57,9 @@ impl<T: JSTraceable + DomObject + 'static> ScriptChan for WorkerThreadWorkerChan
 impl<T: DomObject> ScriptPort for Receiver<(Trusted<T>, WorkerScriptMsg)> {
     fn recv(&self) -> Result<CommonScriptMsg, ()> {
         match self.recv().map(|(_, msg)| msg) {
-            Ok(WorkerScriptMsg::Common(script_msg)) => Ok(script_msg),
-            Ok(WorkerScriptMsg::DOMMessage(_)) => panic!("unexpected worker event message!"),
-            Err(_) => Err(()),
+            Some(WorkerScriptMsg::Common(script_msg)) => Ok(script_msg),
+            Some(WorkerScriptMsg::DOMMessage(_)) => panic!("unexpected worker event message!"),
+            None => Err(()),
         }
     }
 }

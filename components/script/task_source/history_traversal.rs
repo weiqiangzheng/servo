@@ -11,7 +11,7 @@ pub struct HistoryTraversalTaskSource(pub Sender<MainThreadScriptMsg>);
 
 impl ScriptChan for HistoryTraversalTaskSource {
     fn send(&self, msg: CommonScriptMsg) -> Result<(), ()> {
-        self.0.send(MainThreadScriptMsg::Common(msg)).map_err(|_| ())
+        Ok(self.0.send(MainThreadScriptMsg::Common(msg)))
     }
 
     fn clone(&self) -> Box<ScriptChan + Send> {

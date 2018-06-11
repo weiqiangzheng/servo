@@ -42,7 +42,7 @@ pub mod webdriver_msg;
 
 use bluetooth_traits::BluetoothRequest;
 use canvas_traits::webgl::WebGLPipeline;
-use crossbeam_channel::{Receiver, Sender, RecvTimeoutError};
+use crossbeam_channel::{Receiver, Sender};
 use devtools_traits::{DevtoolScriptControlMsg, ScriptToDevtoolsControlMsg, WorkerId};
 use euclid::{Length, Point2D, Vector2D, Rect, TypedSize2D, TypedScale};
 use gfx_traits::Epoch;
@@ -786,12 +786,6 @@ pub enum PaintWorkletError {
     Timeout,
     /// No such worklet.
     WorkletNotFound,
-}
-
-impl From<RecvTimeoutError> for PaintWorkletError {
-    fn from(_: RecvTimeoutError) -> PaintWorkletError {
-        PaintWorkletError::Timeout
-    }
 }
 
 /// Execute paint code in the worklet thread pool.

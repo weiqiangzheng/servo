@@ -40,8 +40,6 @@ use std::fmt;
 use std::ops;
 #[cfg(feature = "servo")]
 use std::sync::Mutex;
-#[cfg(feature = "servo")]
-use std::sync::mpsc::Sender;
 use style_traits::CSSPixel;
 use style_traits::DevicePixel;
 #[cfg(feature = "servo")]

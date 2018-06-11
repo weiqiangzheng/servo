@@ -473,11 +473,11 @@ fn run_server(sender: Sender<DevtoolsControlMsg>,
         for stream in listener.incoming() {
             // connection succeeded
             sender_clone.send(DevtoolsControlMsg::FromChrome(
-                    ChromeToDevtoolsControlMsg::AddClient(stream.unwrap()))).unwrap();
+                    ChromeToDevtoolsControlMsg::AddClient(stream.unwrap())))
         }
     }).expect("Thread spawning failed");
 
-    while let Ok(msg) = receiver.recv() {
+    while let Some(msg) = receiver.recv() {
         match msg {
             DevtoolsControlMsg::FromChrome(ChromeToDevtoolsControlMsg::AddClient(stream)) => {
                 let actors = actors.clone();

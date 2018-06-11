@@ -29,10 +29,7 @@ pub struct CompositorProxy {
 
 impl CompositorProxy {
     pub fn send(&self, msg: Msg) {
-        // Send a message and kick the OS event loop awake.
-        if let Err(err) = self.sender.send(msg) {
-            warn!("Failed to send response ({}).", err);
-        }
+        self.sender.send(msg);
         self.event_loop_waker.wake();
     }
 }
@@ -53,7 +50,7 @@ pub struct CompositorReceiver {
 
 impl CompositorReceiver {
     pub fn try_recv_compositor_msg(&mut self) -> Option<Msg> {
-        self.receiver.try_recv().ok()
+        self.receiver.try_recv()
     }
     pub fn recv_compositor_msg(&mut self) -> Msg {
         self.receiver.recv().unwrap()

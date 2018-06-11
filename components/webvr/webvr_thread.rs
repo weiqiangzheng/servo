@@ -219,7 +219,7 @@ impl WebVRThread {
 
     fn handle_create_compositor(&mut self, display_id: u32) {
         let compositor = self.service.get_display(display_id).map(|d| WebVRCompositor(d.as_ptr()));
-        self.vr_compositor_chan.send(compositor).unwrap();
+        self.vr_compositor_chan.send(compositor);
     }
 
     fn handle_get_gamepads(&mut self,
@@ -255,7 +255,7 @@ impl WebVRThread {
 
     fn notify_events(&self, events: Vec<VREvent>) {
         let pipeline_ids: Vec<PipelineId> = self.contexts.iter().map(|c| *c).collect();
-        self.constellation_chan.send(ConstellationMsg::WebVREvents(pipeline_ids.clone(), events)).unwrap();
+        self.constellation_chan.send(ConstellationMsg::WebVREvents(pipeline_ids.clone(), events));
     }
 
     #[inline]

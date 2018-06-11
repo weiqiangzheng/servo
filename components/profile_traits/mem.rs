@@ -20,9 +20,7 @@ pub trait OpaqueSender<T> {
 
 impl<T> OpaqueSender<T> for Sender<T> {
     fn send(&self, message: T) {
-        if let Err(e) = Sender::send(self, message) {
-            warn!("Error communicating with the target thread from the profiler: {}", e);
-        }
+        Sender::send(self, message)
     }
 }
 

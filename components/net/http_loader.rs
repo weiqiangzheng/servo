@@ -346,7 +346,7 @@ fn prepare_devtools_request(request_id: String,
 
 fn send_request_to_devtools(msg: ChromeToDevtoolsControlMsg,
                             devtools_chan: &Sender<DevtoolsControlMsg>) {
-    devtools_chan.send(DevtoolsControlMsg::FromChrome(msg)).unwrap();
+    devtools_chan.send(DevtoolsControlMsg::FromChrome(msg));
 }
 
 fn send_response_to_devtools(devtools_chan: &Sender<DevtoolsControlMsg>,

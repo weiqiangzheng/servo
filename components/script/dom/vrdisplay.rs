@@ -599,12 +599,12 @@ impl VRDisplay {
         match self.frame_data_status.get() {
             VRFrameDataStatus::Synced => {
                 // Sync succeeded. Notify RAF thread.
-                end_sender.send(Ok((self.depth_near.get(), self.depth_far.get()))).unwrap();
+                end_sender.send(Ok((self.depth_near.get(), self.depth_far.get())));
             },
             VRFrameDataStatus::Exit | VRFrameDataStatus::Waiting => {
                 // ExitPresent called or some error ocurred.
                 // Notify VRDisplay RAF thread to stop.
-                end_sender.send(Err(())).unwrap();
+                end_sender.send(Err(()));
             }
         }
     }

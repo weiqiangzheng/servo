@@ -361,7 +361,7 @@ impl Drop for ScriptReflowResult {
             self.result
                 .borrow_mut()
                 .take()
-                .unwrap()).unwrap();
+                .unwrap());
     }
 }
 
@@ -613,12 +613,10 @@ impl LayoutThread {
             FromFontCache,
         }
 
-        let request = select_loop! {
-            recv(self.pipeline_port, msg) => Request::FromPipeline(msg),
-            recv(self.port, msg) => Request::FromScript(msg),
-            recv(self.font_cache_receiver, msg) => { let _ = msg; Request::FromFontCache }
-            // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/issues/6
-            disconnected() => panic!("channels are disconnected in LayoutThread::handle_request")
+        let request = select! {
+            recv(self.pipeline_port, msg) => Request::FromPipeline(msg.unwrap()),
+            recv(self.port, msg) => Request::FromScript(msg.unwrap()),
+            recv(self.font_cache_receiver, msg) => { msg.unwrap(); Request::FromFontCache }
         };
 
         match request {
@@ -694,7 +692,7 @@ impl LayoutThread {
             Msg::GetRPC(response_chan) => {
                 response_chan.send(
                     Box::new(LayoutRPCImpl(self.rw_data.clone())) as Box<LayoutRPC + Send>
-                ).unwrap();
+                );
             },
             Msg::Reflow(data) => {
                 let mut data = ScriptReflowResult::new(data);
@@ -836,7 +834,7 @@ impl LayoutThread {
     /// Enters a quiescent state in which no new messages will be processed until an `ExitNow` is
     /// received. A pong is immediately sent on the given response channel.
     fn prepare_to_exit(&mut self, response_chan: Sender<()>) {
-        response_chan.send(()).unwrap();
+        response_chan.send(());
         loop {
             match self.port.recv().unwrap() {
                 Msg::ReapStyleAndLayoutData(dead_data) => {

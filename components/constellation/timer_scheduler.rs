@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crossbeam_channel;
-use crossbeam_channel::TryRecvError::{Disconnected, Empty};
 use ipc_channel::ipc::{self, IpcSender};
 use script_traits::{TimerEvent, TimerEventRequest, TimerSchedulerMsg};
 use std::cmp::{self, Ord};
@@ -52,6 +51,8 @@ impl TimerScheduler {
             .spawn(move || {
                 // We maintain a priority queue of future events, sorted by due time.
                 let mut scheduled_events = BinaryHeap::<ScheduledEvent>::new();
+                #[allow(unsafe_code)]
+                // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/pull/49
                 loop {
                     let now = Instant::now();
                     // Dispatch any events whose due time is past
@@ -70,24 +71,27 @@ impl TimerScheduler {
                         scheduled_events.pop();
                     }
                     // Look to see if there are any incoming events
-                    match req_receiver.try_recv() {
-                        // If there is an event, add it to the priority queue
-                        Ok(TimerSchedulerMsg::Request(req)) => {
-                            let TimerEventRequest(_, _, _, delay) = req;
-                            let schedule = Instant::now() + Duration::from_millis(delay.get());
-                            let event = ScheduledEvent { request: req, for_time: schedule };
-                            scheduled_events.push(event);
+                    select! {
+                        recv(req_receiver, msg) => match msg {
+                            // If there is an event, add it to the priority queue
+                            Some(TimerSchedulerMsg::Request(req)) => {
+                                let TimerEventRequest(_, _, _, delay) = req;
+                                let schedule = Instant::now() + Duration::from_millis(delay.get());
+                                let event = ScheduledEvent { request: req, for_time: schedule };
+                                scheduled_events.push(event);
+                            },
+                            // If the channel is closed or we are shutting down, we are done.
+                            Some(TimerSchedulerMsg::Exit) |
+                            None => break,
                         },
+
                         // If there is no incoming event, park the thread,
                         // it will either be unparked when a new event arrives,
                         // or by a timeout.
-                        Err(Empty) => match scheduled_events.peek() {
+                        default => match scheduled_events.peek() {
                             None => thread::park(),
                             Some(event) => thread::park_timeout(event.for_time - now),
                         },
-                        // If the channel is closed or we are shutting down, we are done.
-                        Ok(TimerSchedulerMsg::Exit) |
-                        Err(Disconnected) => break,
                     }
                 }
                 // This thread can terminate if the req_ipc_sender is dropped.

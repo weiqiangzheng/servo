@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crossbeam_channel::{self, Receiver, RecvError, Sender};
+use crossbeam_channel::{self, Receiver, Sender};
 use devtools;
 use devtools_traits::DevtoolScriptControlMsg;
 use dom::abstractworker::WorkerScriptMsg;
@@ -55,9 +55,8 @@ pub struct ServiceWorkerChan {
 
 impl ScriptChan for ServiceWorkerChan {
     fn send(&self, msg: CommonScriptMsg) -> Result<(), ()> {
-        self.sender
-            .send(ServiceWorkerScriptMsg::CommonWorker(WorkerScriptMsg::Common(msg)))
-            .map_err(|_| ())
+        Ok(self.sender
+               .send(ServiceWorkerScriptMsg::CommonWorker(WorkerScriptMsg::Common(msg))))
     }
 
     fn clone(&self) -> Box<ScriptChan + Send> {
@@ -213,7 +212,7 @@ impl ServiceWorkerGlobalScope {
             scope.upcast::<GlobalScope>().mem_profiler_chan().run_with_memory_reporting(|| {
                 // https://html.spec.whatwg.org/multipage/#event-loop-processing-model
                 // Step 1
-                while let Ok(event) = global.receive_event() {
+                while let Some(event) = global.receive_event() {
                     // Step 3
                     if !global.handle_event(event) {
                         break;
@@ -275,24 +274,19 @@ impl ServiceWorkerGlobalScope {
         }
     }
 
-    fn receive_event(&self) -> Result<MixedMessage, RecvError> {
+    // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/pull/49
+    #[allow(unsafe_code)]
+    fn receive_event(&self) -> Option<MixedMessage> {
         let scope = self.upcast::<WorkerGlobalScope>();
         let devtools_port = scope.from_devtools_receiver();
 
-        select_loop! {
-            recv(self.receiver, msg) => {
-                Ok(MixedMessage::FromServiceWorker(msg))
+        select! {
+            recv(self.receiver, msg) => msg.map(MixedMessage::FromServiceWorker),
+            recv(self.timer_event_port, msg) => msg.map(MixedMessage::FromTimeoutThread),
+            recv(scope.from_devtools_sender().map(|_| devtools_port), msg) => {
+                msg.map(MixedMessage::FromDevtools)
             }
-            recv(self.timer_event_port, msg) => {
-                Ok(MixedMessage::FromTimeoutThread(msg))
-            }
-            recv(devtools_port, msg) if scope.from_devtools_sender().is_some() => {
-                Ok(MixedMessage::FromDevtools(msg))
-            }
-            // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/issues/6
-            disconnected() => {
-                Err(RecvError)
-            }
+            default => None
         }
     }
 

@@ -453,8 +453,7 @@ pub fn start_transitions_if_applicable(
                         property_animation: property_animation,
                     },
                     /* is_expired = */ false,
-                ))
-                .unwrap();
+                ));
 
             had_animations = true;
         }
@@ -595,8 +594,7 @@ where
                         expired: false,
                         cascade_style: new_style.clone(),
                     },
-                ))
-                .unwrap();
+                ));
             had_animations = true;
         }
     }

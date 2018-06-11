@@ -46,7 +46,7 @@ pub fn start_server(port: u16) -> Sender {
         thread::Builder::new().name("debugger-websocket".to_owned()).spawn(move || {
             socket.listen(("127.0.0.1", port)).unwrap();
         }).expect("Thread spawning failed");
-        while let Ok(message) = receiver.recv() {
+        while let Some(message) = receiver.recv() {
             match message {
                 Message::ShutdownServer => {
                     break;
@@ -60,8 +60,5 @@ pub fn start_server(port: u16) -> Sender {
 
 pub fn shutdown_server(sender: &Sender) {
     debug!("Shutting down server.");
-    let &Sender(ref sender) = sender;
-    if let Err(_) = sender.send(Message::ShutdownServer) {
-        warn!("Failed to shut down server.");
-    }
+    sender.0.send(Message::ShutdownServer)
 }

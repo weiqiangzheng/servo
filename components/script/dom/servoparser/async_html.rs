@@ -238,7 +238,7 @@ impl Tokenizer {
 
         // Send message to parser thread, asking it to start reading from the input.
         // Parser operation messages will be sent to main thread as they are evaluated.
-        self.html_tokenizer_sender.send(ToHtmlTokenizerMsg::Feed { input: send_tendrils }).unwrap();
+        self.html_tokenizer_sender.send(ToHtmlTokenizerMsg::Feed { input: send_tendrils });
 
         loop {
             match self.receiver.recv().expect("Unexpected channel panic in main thread.") {
@@ -260,7 +260,7 @@ impl Tokenizer {
     }
 
     pub fn end(&mut self) {
-        self.html_tokenizer_sender.send(ToHtmlTokenizerMsg::End).unwrap();
+        self.html_tokenizer_sender.send(ToHtmlTokenizerMsg::End);
         loop {
             match self.receiver.recv().expect("Unexpected channel panic in main thread.") {
                 ToTokenizerMsg::ProcessOperation(parse_op) => self.process_operation(parse_op),
@@ -275,7 +275,7 @@ impl Tokenizer {
     }
 
     pub fn set_plaintext_state(&mut self) {
-        self.html_tokenizer_sender.send(ToHtmlTokenizerMsg::SetPlainTextState).unwrap();
+        self.html_tokenizer_sender.send(ToHtmlTokenizerMsg::SetPlainTextState);
     }
 
     fn insert_node(&mut self, id: ParseNodeId, node: Dom<Node>) {
@@ -481,11 +481,11 @@ fn run(sink: Sink,
                     TokenizerResult::Done => ToTokenizerMsg::TokenizerResultDone { updated_input },
                     TokenizerResult::Script(script) => ToTokenizerMsg::TokenizerResultScript { script, updated_input }
                 };
-                sender.send(res).unwrap();
+                sender.send(res);
             },
             ToHtmlTokenizerMsg::End => {
                 html_tokenizer.end();
-                sender.send(ToTokenizerMsg::End).unwrap();
+                sender.send(ToTokenizerMsg::End);
                 break;
             },
             ToHtmlTokenizerMsg::SetPlainTextState => html_tokenizer.set_plaintext_state()
@@ -536,7 +536,7 @@ impl Sink {
     }
 
     fn send_op(&self, op: ParseOperation) {
-        self.sender.send(ToTokenizerMsg::ProcessOperation(op)).unwrap();
+        self.sender.send(ToTokenizerMsg::ProcessOperation(op));
     }
 
     fn insert_parse_node_data(&mut self, id: ParseNodeId, data: ParseNodeData) {

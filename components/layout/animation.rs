@@ -37,7 +37,7 @@ where
     E: TElement,
 {
     let mut new_running_animations = vec![];
-    while let Ok(animation) = new_animations_receiver.try_recv() {
+    while let Some(animation) = new_animations_receiver.try_recv() {
         let mut should_push = true;
         if let Animation::Keyframes(ref node, _, ref name, ref state) = animation {
             // If the animation was already present in the list for the

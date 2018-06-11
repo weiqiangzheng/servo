@@ -342,6 +342,8 @@ impl PaintWorkletGlobalScope {
             }
         }
         impl Painter for WorkletPainter {
+            // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/pull/49
+            #[allow(unsafe_code)]
             fn draw_a_paint_image(&self,
                                   size: TypedSize2D<f32, CSSPixel>,
                                   device_pixel_ratio: TypedScale<f32, CSSPixel, DevicePixel>,
@@ -363,9 +365,12 @@ impl PaintWorkletGlobalScope {
                                    .as_u64()
                                    .unwrap_or(10u64);
 
-                let timeout_duration = Duration::from_millis(timeout);
-                receiver.recv_timeout(timeout_duration)
-                        .map_err(|e| PaintWorkletError::from(e))
+                select! {
+                    recv(crossbeam_channel::after(Duration::from_millis(timeout))) => {
+                        Err(PaintWorkletError::Timeout)
+                    }
+                    recv(receiver, msg) => msg.ok_or(PaintWorkletError::Timeout)
+                }
             }
         }
         Box::new(WorkletPainter {

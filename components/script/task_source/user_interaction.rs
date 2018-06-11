@@ -40,7 +40,7 @@ impl TaskSource for UserInteractionTaskSource {
             Box::new(canceller.wrap_task(task)),
             Some(self.1)
         ));
-        self.0.send(msg).map_err(|_| ())
+        Ok(self.0.send(msg))
     }
 }
 

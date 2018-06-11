@@ -825,13 +825,12 @@ impl<Message, LTF, STF> Constellation<Message, LTF, STF>
 
     /// Handles loading pages, navigation, and granting access to the compositor
     fn handle_request(&mut self) {
-        macro_rules! unwrap_or_log {
-            ($result: expr) => {
-                match $result {
-                    Ok(request) => request,
-                    Err(err) => return error!("Deserialization failed ({}).", err),
-                }
-            }
+        enum Request {
+            Script((PipelineId, FromScriptMsg)),
+            Compositor(FromCompositorMsg),
+            Layout(FromLayoutMsg),
+            NetworkListener((PipelineId, FetchResponseMsg)),
+            FromSWManager(SWManagerMsg),
         }
 
         // Get one incoming request.
@@ -845,24 +844,49 @@ impl<Message, LTF, STF> Constellation<Message, LTF, STF>
         // produces undefined behaviour, resulting in the destructor
         // being called. If this happens, there's not much we can do
         // other than panic.
-        select_loop! {
+        #[allow(unsafe_code)]
+        // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/pull/49
+        let request = select! {
             recv(self.script_receiver, msg) => {
-                self.handle_request_from_script(unwrap_or_log!(msg))
-            }
-            recv(self.layout_receiver, msg) => {
-                self.handle_request_from_layout(unwrap_or_log!(msg))
-            }
-            recv(self.swmanager_receiver, msg) => {
-                self.handle_request_from_swmanager(unwrap_or_log!(msg))
+                msg.expect("Unexpected script channel panic in constellation").map(Request::Script)
             }
             recv(self.compositor_receiver, msg) => {
-                self.handle_request_from_compositor(msg)
+                Ok(Request::Compositor(msg.expect("Unexpected compositor channel panic in constellation")))
+            }
+            recv(self.layout_receiver, msg) => {
+                msg.expect("Unexpected layout channel panic in constellation").map(Request::Layout)
             }
             recv(self.network_listener_receiver, msg) => {
-                self.handle_request_from_network_listener(msg)
+                Ok(Request::NetworkListener(
+                    msg.expect("Unexpected network listener channel panic in constellation")
+                ))
             }
-            // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/issues/6
-            disconnected() => panic!("channels are disconnected in Constellation::handle_request")
+            recv(self.swmanager_receiver, msg) => {
+                msg.expect("Unexpected panic channel panic in constellation").map(Request::FromSWManager)
+            }
+        };
+
+        let request = match request {
+            Ok(request) => request,
+            Err(err) => return error!("Deserialization failed ({}).", err),
+        };
+
+        match request {
+            Request::Compositor(message) => {
+                self.handle_request_from_compositor(message)
+            },
+            Request::Script(message) => {
+                self.handle_request_from_script(message);
+            },
+            Request::Layout(message) => {
+                self.handle_request_from_layout(message);
+            },
+            Request::NetworkListener(message) => {
+                self.handle_request_from_network_listener(message);
+            },
+            Request::FromSWManager(message) => {
+                self.handle_request_from_swmanager(message);
+            }
         }
     }
 
@@ -1269,9 +1293,7 @@ impl<Message, LTF, STF> Constellation<Message, LTF, STF>
         if let Some(ref chan) = self.devtools_chan {
             debug!("Exiting devtools.");
             let msg = DevtoolsControlMsg::FromChrome(ChromeToDevtoolsControlMsg::ServerExitMsg);
-            if let Err(e) = chan.send(msg) {
-                warn!("Exit devtools failed ({})", e);
-            }
+            chan.send(msg);
         }
 
         debug!("Exiting storage resource threads.");

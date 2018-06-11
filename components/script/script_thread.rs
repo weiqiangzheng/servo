@@ -188,7 +188,7 @@ impl InProgressLoad {
            origin: MutableOrigin) -> InProgressLoad {
         let current_time = get_time();
         let navigation_start_precise = precise_time_ns();
-        layout_chan.send(message::Msg::SetNavigationStart(navigation_start_precise)).unwrap();
+        layout_chan.send(message::Msg::SetNavigationStart(navigation_start_precise));
         InProgressLoad {
             pipeline_id: id,
             browsing_context_id: browsing_context_id,
@@ -247,39 +247,39 @@ impl OpaqueSender<CommonScriptMsg> for Box<ScriptChan + Send> {
 
 impl ScriptPort for Receiver<CommonScriptMsg> {
     fn recv(&self) -> Result<CommonScriptMsg, ()> {
-        self.recv().map_err(|_| ())
+        self.recv().ok_or(())
     }
 }
 
 impl ScriptPort for Receiver<MainThreadScriptMsg> {
     fn recv(&self) -> Result<CommonScriptMsg, ()> {
         match self.recv() {
-            Ok(MainThreadScriptMsg::Common(script_msg)) => Ok(script_msg),
-            Ok(_) => panic!("unexpected main thread event message!"),
-            _ => Err(()),
+            Some(MainThreadScriptMsg::Common(script_msg)) => Ok(script_msg),
+            Some(_) => panic!("unexpected main thread event message!"),
+            None => Err(()),
         }
     }
 }
 
 impl ScriptPort for Receiver<(TrustedWorkerAddress, CommonScriptMsg)> {
     fn recv(&self) -> Result<CommonScriptMsg, ()> {
-        self.recv().map(|(_, msg)| msg).map_err(|_| ())
+        self.recv().map(|(_, msg)| msg).ok_or(())
     }
 }
 
 impl ScriptPort for Receiver<(TrustedWorkerAddress, MainThreadScriptMsg)> {
     fn recv(&self) -> Result<CommonScriptMsg, ()> {
         match self.recv().map(|(_, msg)| msg) {
-            Ok(MainThreadScriptMsg::Common(script_msg)) => Ok(script_msg),
-            Ok(_) => panic!("unexpected main thread event message!"),
-            _ => Err(()),
+            Some(MainThreadScriptMsg::Common(script_msg)) => Ok(script_msg),
+            Some(_) => panic!("unexpected main thread event message!"),
+            None => Err(()),
         }
     }
 }
 
 impl ScriptPort for Receiver<(TrustedServiceWorkerAddress, CommonScriptMsg)> {
     fn recv(&self) -> Result<CommonScriptMsg, ()> {
-        self.recv().map(|(_, msg)| msg).map_err(|_| ())
+        self.recv().map(|(_, msg)| msg).ok_or(())
     }
 }
 
@@ -289,7 +289,7 @@ pub struct SendableMainThreadScriptChan(pub Sender<CommonScriptMsg>);
 
 impl ScriptChan for SendableMainThreadScriptChan {
     fn send(&self, msg: CommonScriptMsg) -> Result<(), ()> {
-        self.0.send(msg).map_err(|_| ())
+        Ok(self.0.send(msg))
     }
 
     fn clone(&self) -> Box<ScriptChan + Send> {
@@ -303,7 +303,7 @@ pub struct MainThreadScriptChan(pub Sender<MainThreadScriptMsg>);
 
 impl ScriptChan for MainThreadScriptChan {
     fn send(&self, msg: CommonScriptMsg) -> Result<(), ()> {
-        self.0.send(MainThreadScriptMsg::Common(msg)).map_err(|_| ())
+        Ok(self.0.send(MainThreadScriptMsg::Common(msg)))
     }
 
     fn clone(&self) -> Box<ScriptChan + Send> {
@@ -313,7 +313,7 @@ impl ScriptChan for MainThreadScriptChan {
 
 impl OpaqueSender<CommonScriptMsg> for Sender<MainThreadScriptMsg> {
     fn send(&self, msg: CommonScriptMsg) {
-        self.send(MainThreadScriptMsg::Common(msg)).unwrap()
+        self.send(MainThreadScriptMsg::Common(msg))
     }
 }
 
@@ -936,14 +936,14 @@ impl ScriptThread {
 
         // Receive at least one message so we don't spinloop.
         debug!("Waiting for event.");
-        let mut event = select_loop! {
-            recv(self.port, msg) => FromScript(msg),
-            recv(self.control_port, msg) => FromConstellation(msg),
-            recv(self.timer_event_port, msg) => FromScheduler(msg),
-            recv(self.devtools_port, msg) if self.devtools_chan.is_some() => FromDevtools(msg),
-            recv(self.image_cache_port, msg) => FromImageCache(msg),
-            // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/issues/6
-            disconnected() => panic!("channels are disconnected in ScriptThread::handle_msgs")
+        // FIXME: https://github.com/crossbeam-rs/crossbeam-channel/pull/49
+        #[allow(unsafe_code)]
+        let mut event = select! {
+            recv(self.port, msg) => FromScript(msg.unwrap()),
+            recv(self.control_port, msg) => FromConstellation(msg.unwrap()),
+            recv(self.timer_event_port, msg) => FromScheduler(msg.unwrap()),
+            recv(self.devtools_chan.as_ref().map(|_| &self.devtools_port), msg) => FromDevtools(msg.unwrap()),
+            recv(self.image_cache_port, msg) => FromImageCache(msg.unwrap()),
         };
         debug!("Got event.");
 
@@ -1025,20 +1025,20 @@ impl ScriptThread {
             // and check for more resize events. If there are no events pending, we'll move
             // on and execute the sequential non-resize events we've seen.
             match self.control_port.try_recv() {
-                Err(_) => match self.port.try_recv() {
-                    Err(_) => match self.timer_event_port.try_recv() {
-                        Err(_) => match self.devtools_port.try_recv() {
-                            Err(_) => match self.image_cache_port.try_recv() {
-                                Err(_) => break,
-                                Ok(ev) => event = FromImageCache(ev),
+                None => match self.port.try_recv() {
+                    None => match self.timer_event_port.try_recv() {
+                        None => match self.devtools_port.try_recv() {
+                            None => match self.image_cache_port.try_recv() {
+                                None => break,
+                                Some(ev) => event = FromImageCache(ev),
                             },
-                            Ok(ev) => event = FromDevtools(ev),
+                            Some(ev) => event = FromDevtools(ev),
                         },
-                        Ok(ev) => event = FromScheduler(ev),
+                        Some(ev) => event = FromScheduler(ev),
                     },
-                    Ok(ev) => event = FromScript(ev),
+                    Some(ev) => event = FromScript(ev),
                 },
-                Ok(ev) => event = FromConstellation(ev),
+                Some(ev) => event = FromConstellation(ev),
             }
         }
 
@@ -1551,7 +1551,7 @@ impl ScriptThread {
         match current_layout_chan {
             None => panic!("Layout attached to empty script thread."),
             // Tell the layout thread factory to actually spawn the thread.
-            Some(layout_chan) => layout_chan.send(msg).unwrap(),
+            Some(layout_chan) => layout_chan.send(msg),
         };
 
         // Kick off the fetch for the new resource.
@@ -1823,12 +1823,12 @@ impl ScriptThread {
         // since layout might still be in the middle of laying it out.
         debug!("preparing to shut down layout for page {}", id);
         let (response_chan, response_port) = crossbeam_channel::unbounded();
-        chan.send(message::Msg::PrepareToExit(response_chan)).ok();
+        chan.send(message::Msg::PrepareToExit(response_chan));
         let _ = response_port.recv();
 
         debug!("shutting down layout for page {}", id);
-        chan.send(message::Msg::ExitNow).ok();
-        self.script_sender.send((id, ScriptMsg::PipelineExited)).ok();
+        let _ = chan.send(message::Msg::ExitNow);
+        let _ = self.script_sender.send((id, ScriptMsg::PipelineExited));
 
         // Now that layout is shut down, it's OK to remove the document.
         if let Some(document) = document {
@@ -2053,8 +2053,7 @@ impl ScriptThread {
         {
             // send the final url to the layout thread.
             incomplete.layout_chan
-                      .send(message::Msg::SetFinalUrl(final_url.clone()))
-                      .unwrap();
+                      .send(message::Msg::SetFinalUrl(final_url.clone()));
 
             // update the pipeline url
             self.script_sender

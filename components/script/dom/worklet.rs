@@ -462,7 +462,7 @@ impl WorkletThread {
                 //       this total ordering on thread roles is what guarantees deadlock-freedom.
                 WorkletData::StartSwapRoles(sender) => {
                     let (our_swapper, their_swapper) = swapper();
-                    sender.send(WorkletData::FinishSwapRoles(their_swapper)).unwrap();
+                    sender.send(WorkletData::FinishSwapRoles(their_swapper));
                     let _ = our_swapper.swap(&mut self.role);
                 }
                 // To finish swapping roles, perform the atomic swap.
@@ -485,12 +485,12 @@ impl WorkletThread {
                 if let Some(control) = self.control_buffer.take() {
                     self.process_control(control);
                 }
-                while let Ok(control) = self.control_receiver.try_recv() {
+                while let Some(control) = self.control_receiver.try_recv() {
                     self.process_control(control);
                 }
                 self.gc();
             } else if self.control_buffer.is_none() {
-                if let Ok(control) = self.control_receiver.try_recv() {
+                if let Some(control) = self.control_receiver.try_recv() {
                     self.control_buffer = Some(control);
                     let msg = WorkletData::StartSwapRoles(self.role.sender.clone());
                     let _ = self.cold_backup_sender.send(msg);
@@ -601,7 +601,7 @@ impl WorkletThread {
             if old_counter == 1 {
                 debug!("Resolving promise.");
                 let msg = MainThreadScriptMsg::WorkletLoaded(pipeline_id);
-                self.global_init.to_script_thread_sender.send(msg).expect("Worklet thread outlived script thread.");
+                self.global_init.to_script_thread_sender.send(msg);
                 self.run_in_script_thread(promise.resolve_task(()));
             }
         }
@@ -644,7 +644,7 @@ impl WorkletThread {
     {
         let msg = CommonScriptMsg::Task(ScriptThreadEventCategory::WorkletEvent, Box::new(task), None);
         let msg = MainThreadScriptMsg::Common(msg);
-        self.global_init.to_script_thread_sender.send(msg).expect("Worklet thread outlived script thread.");
+        self.global_init.to_script_thread_sender.send(msg);
     }
 }
 
