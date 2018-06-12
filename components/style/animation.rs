@@ -7,6 +7,7 @@
 use Atom;
 use bezier::Bezier;
 use context::SharedStyleContext;
+use crossbeam_channel::Sender;
 use dom::{OpaqueNode, TElement};
 use font_metrics::FontMetricsProvider;
 use properties::{self, CascadeFlags, ComputedValues, LonghandId};
@@ -16,7 +17,6 @@ use properties::longhands::animation_play_state::computed_value::single_value::T
 use rule_tree::CascadeLevel;
 use servo_arc::Arc;
 use std::fmt;
-use std::sync::mpsc::Sender;
 use stylesheets::keyframes_rule::{KeyframesAnimation, KeyframesStep, KeyframesStepValue};
 use timer::Timer;
 use values::computed::Time;
@@ -453,8 +453,7 @@ pub fn start_transitions_if_applicable(
                         property_animation: property_animation,
                     },
                     /* is_expired = */ false,
-                ))
-                .unwrap();
+                ));
 
             had_animations = true;
         }
@@ -595,8 +594,7 @@ where
                         expired: false,
                         cascade_style: new_style.clone(),
                     },
-                ))
-                .unwrap();
+                ));
             had_animations = true;
         }
     }
